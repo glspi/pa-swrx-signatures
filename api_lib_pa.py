@@ -324,6 +324,67 @@ class api_lib_pa:
         return response.text
 
 
+    def commit_lock(self, add_or_remove):
+        # Create URL
+        url = f"https://{self.pa_ip}:443/api?type=op&&key={self.key}&cmd=<request><commit-lock><{add_or_remove}></{add_or_remove}></commit-lock></request>"
+
+        # Make the API Call
+        response = self.session[self.pa_ip].get(url, verify=False)
+
+        # Extra logging if debugging
+        if DEBUG:
+            print(f"URL = {url}")
+            print(
+                f"\nGET request sent: type={call_type}, category={category}, \n"
+            )
+            print(f"\nResponse Status Code = {response.status_code}")
+            print(f"\nResponse = {response.text}")
+
+        # Return response
+        return response
+
+
+    def commit(self, description):
+        # Create URL
+        url = f"https://{self.pa_ip}:443/api/?type=commit&key={self.key}&cmd=<commit><description>{description}</description></commit>"
+
+        # Make the API Call
+        response = self.session[self.pa_ip].get(url, verify=False)
+
+        # Extra logging if debugging
+        if DEBUG:
+            print(f"URL = {url}")
+            print(
+                f"\nGET request sent: type={call_type}, category={category}, \n"
+            )
+            print(f"\nResponse Status Code = {response.status_code}")
+            print(f"\nResponse = {response.text}")
+
+        # Return response
+        return response
+
+
+    def commit_partial(self, user):
+        # Create URL
+        url = f"https://{self.pa_ip}:443/api/?type=commit&key={self.key}&cmd=<commit><partial><admin>{user}</admin></partial></commit>"
+
+        # Make the API Call
+        response = self.session[self.pa_ip].get(url, verify=False)
+
+        # Extra logging if debugging
+        if DEBUG:
+            print(f"URL = {url}")
+            print(
+                f"\nGET request sent: type={call_type}, category={category}, \n"
+            )
+            print(f"\nResponse Status Code = {response.status_code}")
+            print(f"\nResponse = {response.text}")
+
+        # Return response
+        return response
+
+
+
     # Import Named Configuration
     def import_named_configuration(
         self, xml_config, call_type="import", category="configuration"
@@ -346,6 +407,21 @@ class api_lib_pa:
         # Return response
         return response
 
+
+    def load_config_partial(self, from_xpath, to_xpath, fname):
+        # Create the URL
+        load_url = f"https://{self.pa_ip}:443/api/?type=op&key={self.key}&cmd=<load><config><partial><mode>merge</mode><from-xpath>{from_xpath}</from-xpath><to-xpath>{to_xpath}</to-xpath><from>{fname}</from></partial></config></load>"  
+        # Make the API Call
+        response = self.session[self.pa_ip].get(load_url, verify=False)
+
+        # Extra logging if debugging
+        if DEBUG:
+            print(f"URL = {load_url}")
+            print("\nGET request sent: type: load config partial, \n")
+            print(f"\nResponse Status Code = {response.status_code}")
+            print(f"\nResponse = {response.text}")
+
+        return response
 
 
     def grab_api_output(
