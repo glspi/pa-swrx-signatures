@@ -6,8 +6,8 @@ import api_lib_pa as pa_api
 
 ############################################################################################
 pa_ip = "10.254.254.5"
-email_from = "rgillespie@gmail.com"
-email_recipient = "rgillespie@compunet.biz"
+email_from = ""
+email_recipient = ""
 log_file_name = "./logs/pa_signature_update.log"
 from_xpath = "/config/devices/entry/vsys/entry/threats/spyware"
 to_xpath = "/config/devices/entry/device-group/entry[@name='DG_NAME']/threats/spyware"
