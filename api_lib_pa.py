@@ -118,6 +118,13 @@ def get_pa_type():
     
     return pa_type
 
+def error_check(response, operation):
+    if response.status_code != 200 or "error" in response.text:
+        print(f"\n\n{operation} Failed.")
+        print(f"Response Code: {response.status_code}")
+        print(f"Response: {response.text}\n\n")
+        sys.exit(0)
+
 
 def create_xml_files(temp, filename):
 
@@ -339,8 +346,9 @@ class api_lib_pa:
             )
             print(f"\nResponse Status Code = {response.status_code}")
             print(f"\nResponse = {response.text}")
-
-        # Return response
+        
+        # Check for errors and return
+        #error_check(response, f"Commit Lock {add_or_remove}")
         return response
 
 
@@ -360,7 +368,8 @@ class api_lib_pa:
             print(f"\nResponse Status Code = {response.status_code}")
             print(f"\nResponse = {response.text}")
 
-        # Return response
+        # Check for Errors and return
+        #error_check(response, "Commit")
         return response
 
 
@@ -404,7 +413,8 @@ class api_lib_pa:
             print(f"\nResponse Status Code = {response.status_code}")
             print(f"\nResponse = {response.text}")
 
-        # Return response
+        # Check for Errors and return
+        #error_check(response, "Import Named Configuration")
         return response
 
 
@@ -421,6 +431,8 @@ class api_lib_pa:
             print(f"\nResponse Status Code = {response.status_code}")
             print(f"\nResponse = {response.text}")
 
+        # Check for Errors and return
+        #error_check(response, "Load Config Partial")
         return response
 
 
