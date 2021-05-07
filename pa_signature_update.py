@@ -42,8 +42,10 @@ import sw_download as swrx
 import api_lib_pa as pa_api
 
 ############ EDIT BELOW ####################################################################
-pa_ip = "10.254.254.5"
-device_groups = ["dg-name1", "dg-name2"]
+panorama_ip = "10.254.254.5"
+device_groups = ["dg-1", "dg-2"] # Enter device group names here-case sensitive
+email_server = ""
+email_port = 587
 email_from = "me@domain.com"
 email_recipient = "you@domain.com"
 email_subject = "pa-swrx signature auto-updater"
@@ -81,28 +83,37 @@ def send_mail(message):
 
     # Create Connection
     try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
+        with smtplib.SMTP(email_server, email_port) as server:
+            server.starttls(context=context)
             server.login(email_from, email_password)
             server.sendmail(email_from, email_recipient, message)
-    except: 
-        message = "\n\nFAILED sending email, please check email settings.\n\n"
+            outpu(f"Email sent to {email_to}.")
+    except Exception as e: 
+        message = "\n\nFAILED sending email, please check email settings.\n"
+        message += f"\nError was: \n{e}"
         logging.error(message)
         print(message)
 
 
 def set_secrets():
     # Prompt user and set all the secrets
+    print("\nJust hit enter if keeping existing secret.\n")
     client_id = input("Paste SecureWorks client_id: ")
     client_secret = input("Paste SecureWorks client_secret: ")
     pa_username = input("Panorama Username: ")
     pa_password = getpass("Panorama Password: ")
     email_password = getpass("Email Password: ")
 
-    keyring.set_password("pa-secureworks", "client_id", client_id)
-    keyring.set_password("pa-secureworks", "client_secret", client_secret)
-    keyring.set_password("pa-secureworks", "pa_username", pa_username)
-    keyring.set_password("pa-secureworks", "pa_password", pa_password)
-    keyring.set_password("pa-secureworks", "email_password", email_password)
+    if client_id:
+        keyring.set_password("pa-secureworks", "client_id", client_id)
+    if client_secret: 
+        keyring.set_password("pa-secureworks", "client_secret", client_secret)
+    if pa_username:
+        keyring.set_password("pa-secureworks", "pa_username", pa_username)
+    if pa_password:
+        keyring.set_password("pa-secureworks", "pa_password", pa_password)
+    if email_password:
+        keyring.set_password("pa-secureworks", "email_password", email_password)
     
 
 def get_secrets():
@@ -140,12 +151,13 @@ def delete_secrets():
 
 
 def sig_update(client_id, client_secret, pa_username, pa_password, email_password):
-    #Log into Panorama
-    pa = pa_api.api_lib_pa(pa_ip, pa_username, pa_password, "panorama")
-    
+
+    success = False
     # Download the file
     sig_file = swrx.sw_download(client_id, client_secret)
 
+    #Log into Panorama
+    pa = pa_api.api_lib_pa(panorama_ip, pa_username, pa_password, "panorama")
     # Create Commit Lock
     output("Creating commit lock on Panorama, please wait....")
     response = pa.commit_lock('add')
@@ -158,20 +170,21 @@ def sig_update(client_id, client_secret, pa_username, pa_password, email_passwor
         error_check(response, "Import Named Configuration")
     output("Signature File Uploaded.")
 
-    # Load Config Partial to device groups
-    for group in device_groups:
-        output(f"Loading new configuration to {group}, please wait....")
-        to_xpath_specific = to_xpath.replace('DG_NAME', group)
-        response = pa.load_config_partial(from_xpath, to_xpath_specific, sig_file)
-        error_check(response, "Load Config Partial")
-
     # Check if -n was used or not
     if args.nocommit:
         output("Removing commit lock on Panorama, please wait....")
         response = pa.commit_lock('remove')
         error_check(response, "Commit Lock Remove")
         message = ("No-commit argument used. Config loaded successfully, check Panorama and commit/push manually to update.")
+        success = True
     else:
+        # Load Config Partial to device groups
+        for group in device_groups:
+            output(f"Loading new configuration to {group}, please wait....")
+            to_xpath_specific = to_xpath.replace('DG_NAME', group)
+            response = pa.load_config_partial(from_xpath, to_xpath_specific, sig_file)
+            error_check(response, "Load Config Partial")
+
         # Commit changes
         output("Committing changes in Panorama, please wait....")
         response = pa.commit("pa-swrx-signatures")
@@ -184,10 +197,12 @@ def sig_update(client_id, client_secret, pa_username, pa_password, email_passwor
             error_check(response, f"Push config to {group}")
         
         message = f"Success!, Panorama has updated spyware signatures with: {sig_file}"
+        success = True
     
     # Update with status and send email
     output(message)
-    send_mail(message)
+    if not success:
+        send_mail(message)
 
     # Remove temp 'sigs' directory
     shutil.rmtree("./sigs")

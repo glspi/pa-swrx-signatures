@@ -236,7 +236,7 @@ class api_lib_pa:
 
         # Login Failed check
         if login_response.status_code == 403:
-            print("Login Failed")
+            print("Login Failed to PA/Panorama.")
             sys.exit(0)
 
         # Set successful session and key
@@ -244,7 +244,7 @@ class api_lib_pa:
         temp = xmltodict.parse(login_response.text)
         self.key = temp.get("response").get("result").get("key")
         if not self.key:
-            print(f"Login Failed: Response=\n{temp}")
+            print(f"Login Failed to PA/Panorama: Response=\n{temp}")
             sys.exit(0)
 
 
