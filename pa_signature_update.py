@@ -1,3 +1,39 @@
+"""
+Description: 
+    Download latest malware/spyware signatures from Dell SecureWorks
+    Upload new signatures to Panorama, and 
+
+Requires:
+    requests
+    xmltodict
+    json
+        to install try: pip3 install xmltodict requests json
+
+Author:
+    Ryan Gillespie rgillespie@compunet.biz
+
+
+Tested:
+    Tested on macos 10.12.3
+    Python: 3.6.2
+    PA VM100
+
+Example usage:
+
+
+Cautions:
+
+
+Legal:
+    THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+    WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+    MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+    ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+    WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+"""
+
 import os, sys, shutil, smtplib, ssl, keyring, argparse, logging
 from getpass import getpass
 
@@ -6,8 +42,9 @@ import api_lib_pa as pa_api
 
 ############ EDIT BELOW ####################################################################
 pa_ip = "10.254.254.5"
-email_from = ""
-email_recipient = ""
+device_groups = ["dg-name1", "dg-name2"]
+email_from = "me@domain.com"
+email_recipient = "you@domain.com"
 email_subject = "pa-swrx signature auto-updater"
 log_file_name = "./logs/pa_signature_update.log"
 # Setup passwords/secrets by running 'python pa_signature_update.py --setup'
@@ -27,6 +64,7 @@ def error_check(response, operation):
         "Response Code: {response.status_code}"
         "Response: {response.text}\n\n"""
 
+        # Log and email error, exit program.
         output(message)
         send_mail(message)
         sys.exit(0)
@@ -52,6 +90,7 @@ def send_mail(message):
 
 
 def set_secrets():
+    # Prompt user and set all the secrets
     client_id = input("Paste SecureWorks client_id: ")
     client_secret = input("Paste SecureWorks client_secret: ")
     pa_username = input("Panorama Username: ")
@@ -66,6 +105,7 @@ def set_secrets():
     
 
 def get_secrets():
+    # Grab all the existing secrets, returns None if they don't exist
     secrets = {}
     secrets["client_id"] = keyring.get_password("pa-secureworks", "client_id")
     secrets["client_secret"] = keyring.get_password("pa-secureworks", "client_secret")
@@ -98,9 +138,7 @@ def delete_secrets():
         print("\nNo secrets were deleted.\n")
 
 
-
 def sig_update(client_id, client_secret, pa_username, pa_password, email_password):
-
     #Log into Panorama
     pa = pa_api.api_lib_pa(pa_ip, pa_username, pa_password, "panorama")
     
@@ -119,31 +157,40 @@ def sig_update(client_id, client_secret, pa_username, pa_password, email_passwor
         error_check(response, "Import Named Configuration")
     output("Signature File Uploaded.")
 
-    # Delong Load Config Partial
-    output("Loading new configuration to Delong, please wait....")
-    to_xpath_delong = to_xpath.replace('DG_NAME', 'Delong')
-    response = pa.load_config_partial(from_xpath, to_xpath_delong, sig_file)
-    error_check(response, "Load Config Partial")
+    # Load Config Partial to device groups
+    for group in device_groups:
+        output(f"Loading new configuration to {group}, please wait....")
+        to_xpath_specific = to_xpath.replace('DG_NAME', group)
+        response = pa.load_config_partial(from_xpath, to_xpath_specific, sig_file)
+        error_check(response, "Load Config Partial")
 
-    # Phoenix Load Config Partial
-    output("Loading new configuration to Phoenix, please wait....")
-    to_xpath_phoenix = to_xpath.replace('DG_NAME', 'Phoenix')
-    response = pa.load_config_partial(from_xpath, to_xpath_phoenix, sig_file)
-    error_check(response, "Load Config Partial")
+    # Check if -n was used or not
+    if args.nocommit:
+        output("Removing commit lock on Panorama, please wait....")
+        response = pa.commit_lock('remove')
+        error_check(response, "Commit Lock Remove")
+        message = ("No-commit argument used. Config loaded successfully, check Panorama and commit/push manually to update.")
+    else:
+        # Commit changes
+        output("Committing changes in Panorama, please wait....")
+        response = pa.commit("pa-swrx-signatures")
+        error_check(response, "Commit")
 
-    # Commit changes
-    output("Committing changes in Panorama, please wait....")
-    response = pa.commit("pa-swrx-signatures")
-    error_check(response, "Commit")
-
-    message = f"Success!, Panorama has updated spyware signatures with: {sig_file}"
+        # Push to devices
+        for group in device_groups:        
+            output(f"Pushing to {group}, please wait....")
+            response = pa.push(group)
+            error_check(response, f"Push config to {group}")
+        
+        message = f"Success!, Panorama has updated spyware signatures with: {sig_file}"
+    
+    # Update with status and send email
     output(message)
-
-    # Send mail update
     send_mail(message)
 
     # Remove temp 'sigs' directory
     shutil.rmtree("./sigs")
+
 
 if __name__ == "__main__":
 
@@ -151,35 +198,44 @@ if __name__ == "__main__":
     os.makedirs("./logs", exist_ok=True)
     logging.basicConfig(level=logging.INFO, filename=log_file_name, format='%(asctime)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S')
 
-    # Check for --setup or -s
+    # Check for arguments
     parser = argparse.ArgumentParser(description="Use --setup to initaliize the secrets.")
     parser.add_argument("-s", "--setup", help="Set the secrets and passwords to be used.", action='store_true')
-    parser.add_argument("-g", "--get", help="Get the secrets and passwords that will be used.", action="store_true")
+    parser.add_argument("-g", "--getsecrets", help="Get the secrets and passwords that will be used.", action="store_true")
     parser.add_argument("-d", "--download", help="Download the latest signature update ONLY, will not touch the PA.", action="store_true")
     parser.add_argument("-xx", "--delete", help="Delete all secrets from the OS Keychain/Credential Store.", action="store_true")
+    parser.add_argument("-nc", "--nocommit", help="Load config, but do not commit or push the configuration changes.", action="store_true")
     args = parser.parse_args()
 
     # Gather Secrets
-    secrets = get_secrets() # Returns None if not found
+    secrets = get_secrets() 
 
-    # Run based on args sent
+    # Run based on arguments given
     if args.setup:
         set_secrets()
-    elif args.get:
+
+    elif args.getsecrets:
         secrets = get_secrets()
         print()
         for secret, value in secrets.items():
             print(f"{secret} = {value}")
         print()
+
     elif args.download:
+        # Check that secrets exist before running
+        if None in {**secrets}:
+            print("\nError, unable to find secrets, please run with --setup to configure these variables.\n")
+            sys.exit(0)
         swrx.sw_download(secrets["client_id"], secrets["client_secret"])
+
     elif args.delete:
         delete_secrets()
+
     else:
-        # Main 
+        # Check that secrets exist before running
         if None in {**secrets}:
             print("\nError, unable to find secrets, please run with --setup to configure these variables.\n")
             sys.exit(0)
         else:
-            # Run update
+            # Run the update procedure
             sig_update(**secrets)

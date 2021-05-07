@@ -10,7 +10,7 @@ Requires:
 
 Author:
     Ryan Gillespie rgillespie@compunet.biz
-    Docstring stolen from Devin Callaway
+
 
 Tested:
     Tested on macos 10.12.3
@@ -18,15 +18,10 @@ Tested:
     PA VM100
 
 Example usage:
-        import xml_api_lib_pa as pa
-        # export example:
-        obj = pa.get_xml_request_pa(call_type="config",action="show",xpath="")
-        # import example:
-        obj = pa.get_xml_request_pa(call_type="config",action="set",xpath="..",element="<../>")
+
 
 Cautions:
-    Future abilities will be added when use-cases warrant,
-     currently ONLY supported for export/import operations (type=config,action=show, get, or set)
+
 
 Legal:
     THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
@@ -379,7 +374,7 @@ class api_lib_pa:
 
         # Make the API Call
         response = self.session[self.pa_ip].get(url, verify=False)
-
+ 
         # Extra logging if debugging
         if DEBUG:
             print(f"URL = {url}")
@@ -393,6 +388,24 @@ class api_lib_pa:
         return response
 
 
+    def push(self, device_group):
+        # Create URL
+        url = f"https://{self.pa_ip}:443/api/?key={self.key}&type=commit&action=all&cmd=<commit-all><shared-policy><device-group><entry name='{device_group}'/></device-group></shared-policy></commit-all>"        
+
+        # Make the API Call
+        response = self.session[self.pa_ip].get(url, verify=False)
+
+        # Extra logging if debugging
+        if DEBUG:
+            print(f"URL = {url}")
+            print(
+                f"\nGET request sent: type={call_type}, category={category}, \n"
+            )
+            print(f"\nResponse Status Code = {response.status_code}")
+            print(f"\nResponse = {response.text}")
+
+        # Return response
+        return response
 
     # Import Named Configuration
     def import_named_configuration(
