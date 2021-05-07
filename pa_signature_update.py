@@ -6,20 +6,21 @@ Description:
 Requires:
     requests
     xmltodict
-    json
-        to install try: pip3 install xmltodict requests json
+        to install: pip install -r requirements.txt
 
 Author:
     Ryan Gillespie rgillespie@compunet.biz
 
 
 Tested:
-    Tested on macos 10.12.3
-    Python: 3.6.2
-    PA VM100
+    Tested on macos 10.15.7
+    Python: 3.9.0
+    Panorama v9.0.1, v10.?
 
 Example usage:
-
+    Run 'python pa_signature_update.py --setup' to initialize secrets.
+    use 'python pa_signature_update.py --help' for argument list.
+    Normal operation requires no arguments
 
 Cautions:
 
