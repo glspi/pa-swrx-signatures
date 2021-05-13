@@ -43,7 +43,7 @@ import api_lib_pa as pa_api
 
 ############ EDIT BELOW ####################################################################
 panorama_ip = "10.254.254.5"
-device_groups = ["dg-1", "dg-2"] # Enter device group names here-case sensitive
+device_groups = ["dg-1", "dg-2"] # Enter device group names here, case sensitive
 email_server = ""
 email_port = 587
 email_from = "me@domain.com"
@@ -81,13 +81,13 @@ def send_mail(message):
     email_password = keyring.get_password("pa-secureworks", "email_password")
     message = f"Subject: {email_subject}\n\n\n{message}\n\n\n"
 
-    # Create Connection
+    # Create Connection, uncomment server.login() if using authentication.
     try:
         with smtplib.SMTP(email_server, email_port) as server:
             server.starttls(context=context)
-            server.login(email_from, email_password)
+            #server.login(email_from, email_password)
             server.sendmail(email_from, email_recipient, message)
-            outpu(f"Email sent to {email_to}.")
+            output(f"Email sent to {email_recipient}.")
     except Exception as e: 
         message = "\n\nFAILED sending email, please check email settings.\n"
         message += f"\nError was: \n{e}"
@@ -114,6 +114,8 @@ def set_secrets():
         keyring.set_password("pa-secureworks", "pa_password", pa_password)
     if email_password:
         keyring.set_password("pa-secureworks", "email_password", email_password)
+    
+    output("All secrets have been updated. Use --get if you need to confirm them.\n")
     
 
 def get_secrets():
@@ -228,9 +230,11 @@ if __name__ == "__main__":
 
     # Run based on arguments given
     if args.setup:
+        # Configure Secrets
         set_secrets()
 
     elif args.getsecrets:
+        # Print out all secrets
         secrets = get_secrets()
         print()
         for secret, value in secrets.items():
@@ -245,6 +249,7 @@ if __name__ == "__main__":
         swrx.sw_download(secrets["client_id"], secrets["client_secret"])
 
     elif args.delete:
+        # Delete all secrets
         delete_secrets()
 
     else:
